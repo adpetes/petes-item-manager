@@ -5,7 +5,6 @@ import java.util.Comparator;
 import java.util.List;
 
 public class InventoryItemInstanceDto {
-    // TODO have fields for all things armour and weapon
 
     private String instanceItemId;
 

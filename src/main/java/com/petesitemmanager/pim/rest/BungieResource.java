@@ -2,8 +2,10 @@ package com.petesitemmanager.pim.rest;
 
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.web.server.Cookie.SameSite;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,7 +21,6 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 @RequestMapping("/api")
-@CrossOrigin(origins = "http://localhost:3000")
 @RestController
 public class BungieResource {
 
@@ -30,6 +31,7 @@ public class BungieResource {
     @GetMapping("/bungie-authorize-url")
     public ResponseEntity<?> getAuthorizationUrl() throws CustomException {
         try {
+            System.out.println("we got to the auth url.");
             String authUrl = bungieService.getAuthorizationUrl(false);
             String reauthUrl = bungieService.getAuthorizationUrl(true);
             AuthUrlResponse response = new AuthUrlResponse(authUrl, reauthUrl);
@@ -49,19 +51,13 @@ public class BungieResource {
             HttpSession session,
             HttpServletResponse response) {
         try {
-            String token = bungieService.processAuthorization(authCode, session);
+            System.out.println("we got to the callback");
+            String token = bungieService.processAuthorization(authCode);
 
-            Cookie cookie = new Cookie("sessionToken", token);
-            cookie.setMaxAge(604800); // 1 Week
-            cookie.setSecure(true);
-            cookie.setPath("/");
-            cookie.setDomain("localhost");
-
-            response.addCookie(cookie);
-            response.sendRedirect("http://localhost:3000"); // TODO change to website url
-
+            response.sendRedirect("http://pimfr.s3-website.us-east-2.amazonaws.com/?sessionId=" + token);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
             return ResponseEntity.internalServerError().body(e);
         }
     }
@@ -71,11 +67,11 @@ public class BungieResource {
      * reauthenticate
      */
     @PostMapping("/signin")
-    public ResponseEntity<?> signIn(@RequestHeader("Authorization") String sessionToken,
-            HttpServletRequest request) {
+    public ResponseEntity<?> signIn(@RequestHeader("Authorization") String sessionToken) {
         try {
             if (sessionToken != null) {
                 bungieService.findUserAndValidateSessionToken(sessionToken);
+                // response.redi
                 return ResponseEntity.ok().build();
             } else {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Session token not found");
@@ -99,31 +95,12 @@ public class BungieResource {
 
     /* User linked profiles */
     @GetMapping("/linked-profiles")
-    public ResponseEntity<?> getLinkedProfiles(@RequestHeader("Authorization") String sessionToken,
-            HttpServletRequest request) {
+    public ResponseEntity<?> getLinkedProfiles(@RequestHeader("Authorization") String sessionToken) {
         try {
             if (sessionToken != null) {
                 String linkedProfiles = bungieService.getLinkedProfiles(sessionToken);
                 return ResponseEntity.ok().body(linkedProfiles);
 
-            } else {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body("Session token not found");
-            }
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(e);
-        }
-    }
-
-    /* User profile */
-    @GetMapping("/profile/{profileId}/{membershipType}")
-    public ResponseEntity<?> getProfileData(@RequestHeader("Authorization") String sessionToken,
-            @PathVariable("profileId") String profileId, @PathVariable("membershipType") int membershipType) {
-        try {
-            if (sessionToken != null) {
-                String profile = bungieService.getProfile(sessionToken, membershipType, profileId);
-                return ResponseEntity.ok().body(profile);
             } else {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body("Session token not found");
@@ -140,7 +117,9 @@ public class BungieResource {
             @RequestHeader("Authorization") String sessionToken,
             @RequestHeader("Account-Id") String accountId,
             @PathVariable("profileId") String profileId,
-            @PathVariable("membershipType") int membershipType) {
+            @PathVariable("membershipType") int membershipType,
+            HttpSession session,
+            HttpServletResponse response) {
         try {
             ProfileDto profile = bungieService.getProfileDetailed(sessionToken, accountId, membershipType,
                     profileId);

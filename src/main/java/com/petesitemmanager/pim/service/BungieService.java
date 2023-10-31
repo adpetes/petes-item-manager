@@ -17,6 +17,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import com.petesitemmanager.pim.domain.InventoryItem;
@@ -50,6 +51,9 @@ public class BungieService {
     @Value("${user.master-token}")
     private String MASTER_SESSION_TOKEN;
 
+    @Value("${user.master-id}")
+    private String MASTER_ID;
+
     @Value("${bungie.api-key}")
     private String API_KEY;
 
@@ -75,6 +79,7 @@ public class BungieService {
         try {
             responseEntity = restTemplate.exchange(url, HttpMethod.GET, requestEntity, String.class);
         } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
             throw new CustomException("Unable to connect to Bungie API while requesting auth URL", 1);
         }
         if (responseEntity.getStatusCode().is2xxSuccessful()) {
@@ -89,7 +94,7 @@ public class BungieService {
                 "Error retrieving authorization URL; status code: " + responseEntity.getStatusCodeValue(), 1);
     }
 
-    public String processAuthorization(String authCode, HttpSession session) throws CustomException {
+    public String processAuthorization(String authCode) throws CustomException {
         String url = "https://www.bungie.net/platform/app/oauth/token/";
 
         HttpHeaders headers = new HttpHeaders();
@@ -105,6 +110,7 @@ public class BungieService {
         try {
             tokenResponse = restTemplate.postForEntity(url, tokenRequest, String.class);
         } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
             throw new CustomException("Unable to connect to Bungie API while requesting access token", 1);
         }
 
@@ -119,7 +125,7 @@ public class BungieService {
     }
 
     public boolean validateUserSessionToken(Optional<User> user) {
-        if (user.isPresent()) {
+        if (user.isPresent() && user.get().getSessionTokenExpiry() != null) {
             return Instant.now().getEpochSecond() < user.get().getSessionTokenExpiry();
         } else {
             return false;
@@ -127,10 +133,10 @@ public class BungieService {
     }
 
     public void deleteUserTokenInfo(String sessionToken) throws CustomException {
-        if (sessionToken.equals(MASTER_SESSION_TOKEN)) {
+        Optional<User> user = userService.findUserBySessionToken(sessionToken);
+        if (user.isPresent() && user.get().getIsMaster()) {
             return;
         }
-        Optional<User> user = userService.findUserBySessionToken(sessionToken);
         if (validateUserSessionToken(user)) {
             userService.wipeUserTokenInfo(user.get());
         } else {
@@ -153,6 +159,7 @@ public class BungieService {
         try {
             response = template.exchange(url, HttpMethod.GET, request, String.class);
         } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
             throw new CustomException("Unable to connect to Bungie API while requesting linked profiles", 1);
         }
 
@@ -216,9 +223,8 @@ public class BungieService {
         }
     }
 
-    public String getProfile(String sessionToken, int membershipType, String profileId)
+    public String getProfile(String sessionToken, int membershipType, String profileId, User user)
             throws CustomException {
-        User user = getValidatedUserBySessionToken(sessionToken);
         String accessToken = user.getAccessToken();
 
         String url = "https://www.bungie.net/Platform/Destiny2/" + membershipType + "/Profile/" + profileId
@@ -239,9 +245,8 @@ public class BungieService {
         }
     }
 
-    public String getCharacter(String sessionToken, int membershipType, String profileId, String characterId)
+    public String getCharacter(String sessionToken, int membershipType, String profileId, String characterId, User user)
             throws CustomException {
-        User user = getValidatedUserBySessionToken(sessionToken);
 
         String url = "https://www.bungie.net/Platform/Destiny2/" + membershipType + "/Profile/" + profileId
                 + "/Character/" + characterId
@@ -256,6 +261,7 @@ public class BungieService {
         try {
             response = template.exchange(url, HttpMethod.GET, request, String.class);
         } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
             throw new CustomException("Unable to connect to Bungie API while requesting character data", 1);
         }
 
@@ -269,10 +275,22 @@ public class BungieService {
 
     public ProfileDto getProfileDetailed(String sessionToken, String accountId, int membershipType, String profileId)
             throws CustomException {
-        User user = getValidatedUserBySessionToken(sessionToken);
-        validateRequestBySessionToken(accountId, user);
+        User user = null;
+        if (sessionToken.equals(MASTER_SESSION_TOKEN)) {
+            user = userService.findByBungieId(MASTER_ID).get();
+            if (!validateUserAccessToken(user)) {
+                user = refreshUserAccessToken(user);
+            }
+        } else {
+            user = getValidatedUserBySessionToken(sessionToken);
+            validateRequestBySessionToken(accountId, user);
+        }
         try {
-            String rawProfileData = getProfile(sessionToken, membershipType, profileId);
+            System.out.println("We got here!!!!!!!!!!!!");
+            Map<Long, InventoryItem> inventoryItemData = inventoryItemService.getAndMayUpdateInventoryItemsMap();
+            System.out.println("We got to HERE OMMGGGG!!!!!!!!!!!!");
+
+            String rawProfileData = getProfile(sessionToken, membershipType, profileId, user);
             JSONObject profileJson = (new JSONObject(rawProfileData)).getJSONObject("Response");
             ProfileDto profile = new ProfileDto();
             JSONObject characterInfoJson = profileJson.getJSONObject("characters")
@@ -284,7 +302,8 @@ public class BungieService {
                 int light = characterInfoJson.getJSONObject(characterId)
                         .getInt("light");
                 String curClassType = ClassType.getType(classType);
-                CharacterDto character = createProfileCharacter(characterId, sessionToken, membershipType, profileId);
+                CharacterDto character = createProfileCharacter(characterId, sessionToken, membershipType, profileId,
+                        inventoryItemData, user);
                 character.setCharacterId(characterId);
                 character.setLight(light);
                 character.setCharacterClass(curClassType);
@@ -306,10 +325,14 @@ public class BungieService {
                     .getJSONArray("items");
             JSONObject itemDetails = profileJson.getJSONObject("itemComponents");
 
-            profile.setVault(createProfileVault(profileVault, itemDetails));
+            profile.setVault(createProfileVault(profileVault, itemDetails, inventoryItemData));
 
             return profile;
+        } catch (HttpServerErrorException e) {
+            throw new CustomException(
+                    String.format("Failed to create detailed profile. Error: %s", e.getLocalizedMessage()), 6);
         } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
             throw new CustomException(
                     String.format("Failed to create detailed profile. Error: %s", e.getLocalizedMessage()), 4);
         }
@@ -322,18 +345,26 @@ public class BungieService {
         }
     }
 
-    private VaultDto createProfileVault(JSONArray profileVault, JSONObject itemDetails) throws CustomException {
+    private VaultDto createProfileVault(JSONArray profileVault, JSONObject itemDetails,
+            Map<Long, InventoryItem> inventoryItemData) throws CustomException {
         VaultDto vault = new VaultDto();
         try {
             for (int i = 0; i < profileVault.length(); i++) {
                 JSONObject item = profileVault.getJSONObject(i);
-                InventoryItemDto inventoryItemDto = createInventoryItemDto(item, itemDetails, false);
+                Long key = item.getLong("itemHash");
+                InventoryItem inventoryItem = inventoryItemData.get(key);
+                InventoryItemDto inventoryItemDto = createInventoryItemDto(item, inventoryItem, itemDetails, false,
+                        inventoryItemData);
                 if (inventoryItemDto != null) {
                     vault.addToItemInventory(inventoryItemDto.getInventoryItemInstance().getInstanceItemId(),
                             inventoryItemDto);
                 }
             }
+        } catch (HttpServerErrorException e) {
+            throw new CustomException(
+                    String.format("Failed to create vault. Error: %s", e.getLocalizedMessage()), 6);
         } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
             throw new CustomException(String.format("Failed to create vault. Error: %s", e.getLocalizedMessage()), 4);
         }
 
@@ -342,9 +373,9 @@ public class BungieService {
     }
 
     private CharacterDto createProfileCharacter(String characterId, String sessionToken, int membershipType,
-            String profileId) throws CustomException {
+            String profileId, Map<Long, InventoryItem> inventoryItemData, User user) throws CustomException {
         CharacterDto character = new CharacterDto();
-        String rawCharacterData = getCharacter(sessionToken, membershipType, profileId, characterId);
+        String rawCharacterData = getCharacter(sessionToken, membershipType, profileId, characterId, user);
 
         try {
             JSONObject characterJson = (new JSONObject(rawCharacterData)).getJSONObject("Response");
@@ -360,24 +391,36 @@ public class BungieService {
 
             for (int i = 0; i < characterEquipment.length(); i++) {
                 JSONObject item = characterEquipment.getJSONObject(i);
-                InventoryItemDto inventoryItemDto = createInventoryItemDto(item, itemDetails, true);
+                Long key = item.getLong("itemHash");
+                InventoryItem inventoryItem = inventoryItemData.get(key);
+                InventoryItemDto inventoryItemDto = createInventoryItemDto(item, inventoryItem, itemDetails, true,
+                        inventoryItemData);
                 if (inventoryItemDto != null) {
                     character.setEquippedItem(inventoryItemDto);
                 }
             }
             for (int i = 0; i < characterInventory.length(); i++) {
                 JSONObject item = characterInventory.getJSONObject(i);
+                Long key = item.getLong("itemHash");
+                InventoryItem inventoryItem = inventoryItemData.get(key);
                 if (item.getInt("location") == 4) {
                     continue;
                 }
-                InventoryItemDto inventoryItemDto = createInventoryItemDto(item, itemDetails, false);
+                InventoryItemDto inventoryItemDto = createInventoryItemDto(item, inventoryItem, itemDetails, false,
+                        inventoryItemData);
                 if (inventoryItemDto != null) {
                     character.addToItemInventory(inventoryItemDto.getInventoryItemInstance().getInstanceItemId(),
                             inventoryItemDto);
                 }
             }
             return character;
+        } catch (HttpServerErrorException e) {
+            throw new CustomException(
+                    String.format("Failed to create character with id: %s. Error: %s", characterId,
+                            e.getLocalizedMessage()),
+                    6);
         } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
             throw new CustomException(
                     String.format("Failed to create character with id: %s. Error: %s", characterId,
                             e.getLocalizedMessage()),
@@ -385,96 +428,98 @@ public class BungieService {
         }
     }
 
-    private InventoryItemDto createInventoryItemDto(JSONObject item, JSONObject itemDetails, boolean forEquipped)
+    private InventoryItemDto createInventoryItemDto(JSONObject item, InventoryItem inventoryItem,
+            JSONObject itemDetails, boolean forEquipped, Map<Long, InventoryItem> inventoryItemData)
             throws CustomException {
-        try {
-            Optional<InventoryItem> maybeInventoryItem = inventoryItemService.findByHashVal(item.getLong("itemHash"));
-            if (maybeInventoryItem.isPresent()) {
-                InventoryItem inventoryItem = maybeInventoryItem.get();
-                InventoryItemDto inventoryItemDto = new InventoryItemDto(
-                        inventoryItem.getName(),
-                        inventoryItem.getIconUrl(),
-                        inventoryItem.getHashVal().toString());
-                inventoryItemDto.setItemType(inventoryItem.getItemType());
-                if (!item.has("itemInstanceId") || inventoryItemDto.getItemType() == null) {
-                    return null;
-                }
-                String instanceItemId = item.getString("itemInstanceId");
-                InventoryItemInstanceDto inventoryItemInstanceDto = new InventoryItemInstanceDto();
-
-                // Basic info
-                JSONObject itemInstanceBasicInfo = itemDetails.getJSONObject("instances")
-                        .getJSONObject("data")
-                        .getJSONObject(instanceItemId);
-                if (item.has("location") && itemInstanceBasicInfo.has("canEquip")
-                        && itemInstanceBasicInfo.has("cannotEquipReason")) {
-                    if (item.getInt("location") == 4
-                            || (item.getInt("location") == 1 && itemInstanceBasicInfo.getInt("cannotEquipReason") == 16
-                                    && !itemInstanceBasicInfo.getBoolean("canEquip"))) {
-                        return null;
-                    }
-                }
-                if (inventoryItemDto.getItemType() == "EMBLEM") {
-                    if (forEquipped) {
-                        return inventoryItemDto;
-                    }
-                    return null;
-                }
-                if (inventoryItem.getDamageType() != null) {
-                    // figure out why damage type null in some records (not emblems) and maybe
-                    // change all ints to Integer
-                    inventoryItemDto.setDamageType(inventoryItem.getDamageType());
-                }
-                inventoryItemInstanceDto.setInstanceItemId(instanceItemId);
-                if (itemInstanceBasicInfo.has("primaryStat")) {
-                    inventoryItemInstanceDto
-                            .setLight(itemInstanceBasicInfo.getJSONObject("primaryStat").getInt("value"));
-                }
-
-                // Perks
-                JSONArray itemInstancePerks = itemDetails.getJSONObject("sockets")
-                        .getJSONObject("data")
-                        .getJSONObject(instanceItemId)
-                        .getJSONArray("sockets");
-                for (int i = 0; i < 5; i++) { // First 5 perks are relevant
-                    if (itemInstancePerks.length() - 1 < i) {
-                        break;
-                    }
-                    if (itemInstancePerks.getJSONObject(i).has("plugHash")) {
-                        long perkHashVal = itemInstancePerks.getJSONObject(i).getLong("plugHash");
-                        Optional<InventoryItem> maybePerkData = inventoryItemService.findByHashVal(perkHashVal);
-                        if (maybePerkData.isPresent()) {
-                            InventoryItem perkData = maybePerkData.get();
-                            InventoryItemDto perkDto = new InventoryItemDto(
-                                    perkData.getName(),
-                                    perkData.getIconUrl(),
-                                    Long.toString(perkHashVal));
-                            inventoryItemInstanceDto.addPerk(perkDto);
-                        }
-                    }
-                }
-
-                // Stats
-                JSONObject itemInstanceStats = itemDetails.getJSONObject("stats")
-                        .getJSONObject("data")
-                        .getJSONObject(instanceItemId)
-                        .getJSONObject("stats");
-                for (String statHash : itemInstanceStats.keySet()) {
-                    long statHashVal = Long.parseLong(statHash);
-                    int statValue = itemInstanceStats.getJSONObject(statHash).getInt("value");
-
-                    StatDto stat = new StatDto();
-                    stat.setStatType(statHashVal);
-                    stat.setStatValue(statValue);
-                    inventoryItemInstanceDto.addStat(stat);
-                }
-
-                inventoryItemDto.setInventoryItemInstance(inventoryItemInstanceDto);
-                return inventoryItemDto;
-            }
+        if (inventoryItem == null) {
             return null;
+        }
+        try {
+            InventoryItemDto inventoryItemDto = new InventoryItemDto(
+                    inventoryItem.getName(),
+                    inventoryItem.getIconUrl(),
+                    inventoryItem.getHashVal().toString());
+            inventoryItemDto.setItemType(inventoryItem.getItemType());
+            if (!item.has("itemInstanceId") || inventoryItemDto.getItemType() == null) {
+                return null;
+            }
+            String instanceItemId = item.getString("itemInstanceId");
+            InventoryItemInstanceDto inventoryItemInstanceDto = new InventoryItemInstanceDto();
 
+            // Basic info
+            JSONObject itemInstanceBasicInfo = itemDetails.getJSONObject("instances")
+                    .getJSONObject("data")
+                    .getJSONObject(instanceItemId);
+            if (item.has("location") && itemInstanceBasicInfo.has("canEquip")
+                    && itemInstanceBasicInfo.has("cannotEquipReason")) {
+                if (item.getInt("location") == 4
+                        || (item.getInt("location") == 1 && itemInstanceBasicInfo.getInt("cannotEquipReason") == 16
+                                && !itemInstanceBasicInfo.getBoolean("canEquip"))) {
+                    return null;
+                }
+            }
+            if (inventoryItemDto.getItemType() == "EMBLEM") {
+                if (forEquipped) {
+                    return inventoryItemDto;
+                }
+                return null;
+            }
+            if (inventoryItem.getDamageType() != null) {
+                // figure out why damage type null in some records (not emblems) and maybe
+                // change all ints to Integer
+                inventoryItemDto.setDamageType(inventoryItem.getDamageType());
+            }
+            inventoryItemInstanceDto.setInstanceItemId(instanceItemId);
+            if (itemInstanceBasicInfo.has("primaryStat")) {
+                inventoryItemInstanceDto
+                        .setLight(itemInstanceBasicInfo.getJSONObject("primaryStat").getInt("value"));
+            }
+
+            // Perks
+            JSONArray itemInstancePerks = itemDetails.getJSONObject("sockets")
+                    .getJSONObject("data")
+                    .getJSONObject(instanceItemId)
+                    .getJSONArray("sockets");
+            for (int i = 0; i < 5; i++) { // First 5 perks are relevant
+                if (itemInstancePerks.length() - 1 < i) {
+                    break;
+                }
+                if (itemInstancePerks.getJSONObject(i).has("plugHash")) {
+                    long perkHashVal = itemInstancePerks.getJSONObject(i).getLong("plugHash");
+                    InventoryItem perkData = inventoryItemData.get(perkHashVal);
+                    if (perkData != null) {
+                        InventoryItemDto perkDto = new InventoryItemDto(
+                                perkData.getName(),
+                                perkData.getIconUrl(),
+                                Long.toString(perkHashVal));
+                        inventoryItemInstanceDto.addPerk(perkDto);
+                    }
+                }
+            }
+
+            // Stats
+            JSONObject itemInstanceStats = itemDetails.getJSONObject("stats")
+                    .getJSONObject("data")
+                    .getJSONObject(instanceItemId)
+                    .getJSONObject("stats");
+            for (String statHash : itemInstanceStats.keySet()) {
+                long statHashVal = Long.parseLong(statHash);
+                int statValue = itemInstanceStats.getJSONObject(statHash).getInt("value");
+
+                StatDto stat = new StatDto();
+                stat.setStatType(statHashVal);
+                stat.setStatValue(statValue);
+                inventoryItemInstanceDto.addStat(stat);
+            }
+
+            inventoryItemDto.setInventoryItemInstance(inventoryItemInstanceDto);
+            return inventoryItemDto;
+
+        } catch (HttpServerErrorException e) {
+            throw new CustomException(
+                    String.format("Failed to create item: %s. Error: %s", item.toString(), e.getLocalizedMessage()), 6);
         } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
             throw new CustomException(
                     String.format("Failed to create item: %s. Error: %s", item.toString(), e.getLocalizedMessage()), 4);
         }
@@ -528,7 +573,14 @@ public class BungieService {
                 JSONObject responseJson = new JSONObject(response.getBody());
                 throw new CustomException(responseJson.getString("Message"));
             }
+        } catch (HttpServerErrorException e) {
+            throw new CustomException(
+                    String.format("Failed to transfer item %s for profile %s. Error: %s",
+                            transferDto.getInventoryItemInstance().getInstanceItemId(), profileId,
+                            e.getLocalizedMessage()),
+                    6);
         } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
             String jsonString = e.getLocalizedMessage();
 
             // Extract the JSON part from the string
@@ -628,7 +680,14 @@ public class BungieService {
                 JSONObject responseJson = new JSONObject(response.getBody());
                 throw new CustomException(responseJson.getString("Message"));
             }
+        } catch (HttpServerErrorException e) {
+            throw new CustomException(
+                    String.format("Failed to equip item %s for profile %s. Error: %s",
+                            transferDto.getInventoryItemInstance().getInstanceItemId(), profileId,
+                            e.getLocalizedMessage()),
+                    6);
         } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
             String jsonString = e.getLocalizedMessage();
 
             // Extract the JSON part from the string
@@ -645,7 +704,7 @@ public class BungieService {
                 message = jsonErrorData.getString("Message");
             }
             throw new CustomException(
-                    String.format("Failed to transfer item %s for profile %s. Error: %s",
+                    String.format("Failed to equip item %s for profile %s. Error: %s",
                             transferDto.getInventoryItemInstance().getInstanceItemId(), profileId,
                             message != null ? message : e.getLocalizedMessage()),
                     errorCode != null ? errorCode : 1);

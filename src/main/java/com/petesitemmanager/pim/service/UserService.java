@@ -62,7 +62,8 @@ public class UserService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);
     }
 
-    public User createOrUpdateUser(JSONObject authResponse, boolean updateSessionToken) throws CustomException {
+    public User createOrUpdateUser(JSONObject authResponse, boolean updateSessionToken)
+            throws CustomException {
         // Read API response containing accessToken and more
         String accessToken = authResponse.getString("access_token");
         int expiresIn = authResponse.getInt("expires_in");
@@ -87,11 +88,11 @@ public class UserService {
         user.setAccessTokenExpiry(now.getEpochSecond() + expiresIn);
         user.setRefreshTokenExpiry(now.getEpochSecond() + refreshExpiresIn);
 
-        if (bungieId.equals(MASTER_ID)) {
-            user.setIsMaster(true);
-            user.setSessionToken(MASTER_SESSION_TOKEN);
-            user.setSessionTokenExpiry(now.getEpochSecond() + 6048000L); // 100 week
-        }
+        // if (bungieId.equals(MASTER_ID)) {
+        // user.setIsMaster(true);
+        // user.setSessionToken(MASTER_SESSION_TOKEN);
+        // user.setSessionTokenExpiry(now.getEpochSecond() + 6048000L); // 100 week
+        // }
         try {
             return save(user);
         } catch (Exception e) {

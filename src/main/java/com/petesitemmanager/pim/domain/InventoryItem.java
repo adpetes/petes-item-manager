@@ -3,7 +3,7 @@ package com.petesitemmanager.pim.domain;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 
-@Entity
+// @Entity
 public class InventoryItem {
 
     public InventoryItem() {
@@ -24,7 +24,7 @@ public class InventoryItem {
         this.itemType = itemType;
     }
 
-    @Id
+    // @Id
     private Long hashVal;
 
     private String name;
