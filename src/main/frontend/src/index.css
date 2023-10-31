@@ -1,0 +1,10 @@
+body {
+  margin: 0;
+  background: radial-gradient(circle, #2f2f48, #1c1c30);
+  /* background-color: #2d2d46; */
+  font-family:  'Open Sans', sans-serif;
+}
+
+a {
+  text-decoration: none;
+}

@@ -1,0 +1,107 @@
+.navbar {
+    height: 40px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background-color: #1c1c30;
+}
+
+.left-container {
+    margin-left: 15px;
+    padding-top: 5px
+}
+
+.middle-container, .container-empty {
+    margin-left: 20px;
+    margin-right: 20px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    border-radius: 3px;
+    height: 28px;
+}
+
+.middle-container {
+    background-color: #202031;
+}
+
+.right-container {
+    width: 60px;
+    display: flex;
+    align-items: center;
+    justify-items: center;
+}
+
+.search-bar {
+    background-color: #202031;
+    outline: none;
+    border: none;
+    flex: 1;
+    color: white;
+}
+
+.search-icon {
+    height: 12px;
+    color: gray;
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+.clear-text-icon {
+    color: #999;
+    width: 14px;
+    cursor: pointer;
+}
+
+.clear-text-icon:hover {
+    color: #e8a534;
+}
+
+.ellipsis-icon {
+    margin-left: 2px;
+    margin-right: 10px;
+}
+
+.chevron-down-icon {
+    margin-right: 12px
+}
+
+.ellipsis-icon, .chevron-down-icon {
+    color: gray;
+    height: 16px;
+}
+
+.sync-icon, .cog-icon {
+    color: white;
+}
+
+.cog-icon {
+    height: 16px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.spin-animation {
+    animation: spin 1s linear infinite;
+}
+
+.sync-icon, .spin-animation {
+    color: white;
+    width: 16px;
+    cursor: pointer;
+}
+
+.logo {
+    height: 25px;
+}
+
+.sign-out {
+    cursor: pointer;
+    height: 20px;
+    color: white;
+    margin-right: 15px;
+    margin-bottom: 2px;
+}

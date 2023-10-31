@@ -1,0 +1,9 @@
+.inventory-section {
+    display: flex;
+    align-content: flex-start;
+}
+
+.inventory-section-characters {
+    margin-left: 15px;
+    margin-right: 11px;
+}

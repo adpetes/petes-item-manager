@@ -1,0 +1,7 @@
+.info-container {
+    position: fixed;
+    display: flex;
+    flex-direction: row;
+    gap: 24px;
+    margin-left: 15px;
+}

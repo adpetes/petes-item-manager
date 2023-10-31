@@ -1,0 +1,10 @@
+.droppable-container {
+    align-content: flex-start;
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.inventory-section-characters {
+    display: flex;
+}
