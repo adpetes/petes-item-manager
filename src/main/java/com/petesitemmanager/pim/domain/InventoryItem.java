@@ -16,12 +16,14 @@ public class InventoryItem {
         this.iconUrl = iconUrl;
     }
 
-    public InventoryItem(Long hashVal, String name, String iconUrl, Integer damageType, Long itemType) {
+    public InventoryItem(Long hashVal, String name, String iconUrl, Integer damageType, Long itemType,
+            Integer itemSubType) {
         this.hashVal = hashVal;
         this.name = name;
         this.iconUrl = iconUrl;
         this.damageType = damageType;
         this.itemType = itemType;
+        this.itemSubType = itemSubType;
     }
 
     // @Id
@@ -34,6 +36,8 @@ public class InventoryItem {
     private Integer damageType;
 
     private Long itemType;
+
+    private Integer itemSubType;
 
     public Long getHashVal() {
         return hashVal;
@@ -73,5 +77,13 @@ public class InventoryItem {
 
     public void setItemType(Long itemType) {
         this.itemType = itemType;
+    }
+
+    public Integer getItemSubType() {
+        return itemSubType;
+    }
+
+    public void setItemSubType(Integer itemSubType) {
+        this.itemSubType = itemSubType;
     }
 }

@@ -1,6 +1,7 @@
 package com.petesitemmanager.pim.service.dto;
 
 import com.petesitemmanager.pim.domain.enums.DamageType;
+import com.petesitemmanager.pim.domain.enums.ItemSubType;
 import com.petesitemmanager.pim.domain.enums.ItemType;
 
 public class InventoryItemDto {
@@ -23,6 +24,8 @@ public class InventoryItemDto {
     private String iconUrl;
 
     private String itemType;
+
+    private String itemSubType;
 
     private InventoryItemInstanceDto inventoryItemInstance;
 
@@ -76,6 +79,14 @@ public class InventoryItemDto {
         this.itemType = itemType;
     }
 
+    public String getItemSubType() {
+        return itemSubType;
+    }
+
+    public void setItemSubType(Integer itemSubTypeHash) {
+        String itemSubType = ItemSubType.getType(itemSubTypeHash);
+        this.itemSubType = itemSubType;
+    }
     // public boolean isEquipped() {
     // return isEquipped;
     // }

@@ -44,71 +44,8 @@ public class InventoryItemService {
     @Value("${bungie.api-key}")
     private String API_KEY;
 
-    // @Autowired
-    // private InventoryItemRepository inventoryItemRepository;
-
-    // @Transactional(readOnly = true)
-    // public Optional<InventoryItem> findByHashVal(Long hashVal) {
-    // log.debug("Request to get InventoryItem by hashVal : {}", hashVal);
-    // return inventoryItemRepository.findByHashVal(hashVal);
-    // }
-
-    // @PostConstruct
-    // public void getAndSaveInventoryItemData() throws CustomException {
-    // try {
-    // ResponseEntity<String> inventoryItemsRes = getInventoryItemData();
-
-    // JSONObject inventoryItemsJson = new JSONObject(inventoryItemsRes.getBody());
-    // List<InventoryItem> inventoryItems = new ArrayList<>();
-
-    // for (String hashValKey : inventoryItemsJson.keySet()) {
-    // JSONObject itemJson = inventoryItemsJson.getJSONObject(hashValKey);
-    // if (isWeaponArmourPerkOrMod(itemJson) || isEmblem(itemJson)) {
-    // String name = null, icon = null;
-    // Integer damageType = 0;
-    // Long itemType = null;
-    // JSONObject displayProperties = itemJson.getJSONObject("displayProperties");
-
-    // if (displayProperties.has("icon")) {
-    // icon = displayProperties.getString("icon");
-    // }
-    // name = displayProperties.getString("name");
-    // if (itemJson.has("inventory")
-    // && itemJson.getJSONObject("inventory").has("bucketTypeHash")) {
-    // itemType = itemJson.getJSONObject("inventory").getLong("bucketTypeHash");
-    // } else {
-    // continue;
-    // }
-    // if (itemJson.has("defaultDamageType")) {
-    // damageType = itemJson.getInt("defaultDamageType");
-    // }
-
-    // if (isEmblem(itemJson)) {
-    // if (itemJson.has("secondaryIcon")) {
-    // icon = itemJson.getString("secondaryIcon");
-    // } else {
-    // continue;
-    // }
-    // }
-    // inventoryItems.add(new InventoryItem(Long.parseLong(hashValKey),
-    // name,
-    // icon,
-    // damageType,
-    // itemType));
-    // }
-    // }
-    // inventoryItemRepository.saveAll(inventoryItems);
-    // } catch (Exception e) {
-    // throw new CustomException("Error loading inventory items: " +
-    // e.getLocalizedMessage());
-    // }
-    // }
-
-    // TODO: get item details on frontend
-
     public Map<Long, InventoryItem> getAndMayUpdateInventoryItemsMap() throws CustomException {
         JSONObject manifest = getManifest();
-        System.out.println("We got the manifest!");
         String curManifestVersion = manifest.getJSONObject("Response").getString("version");
         if (!curManifestVersion.equals(this.manifestVersion)) {
             this.manifestVersion = curManifestVersion;
@@ -135,12 +72,16 @@ public class InventoryItemService {
                     String name = null, icon = null;
                     Integer damageType = 0;
                     Long itemType = null;
+                    Integer itemSubType = null;
                     JSONObject displayProperties = itemJson.getJSONObject("displayProperties");
 
                     if (displayProperties.has("icon")) {
                         icon = displayProperties.getString("icon");
                     }
                     name = displayProperties.getString("name");
+                    if (itemJson.has("itemSubType")) {
+                        itemSubType = itemJson.getInt("itemSubType");
+                    }
                     if (itemJson.has("inventory")
                             && itemJson.getJSONObject("inventory").has("bucketTypeHash")) {
                         itemType = itemJson.getJSONObject("inventory").getLong("bucketTypeHash");
@@ -164,11 +105,11 @@ public class InventoryItemService {
                                 name,
                                 icon,
                                 damageType,
-                                itemType));
+                                itemType,
+                                itemSubType));
                     }
                 }
             }
-            System.out.println("we finished looping!");
             return inventoryItems;
         } catch (Exception e) {
             throw new CustomException("Error loading inventory items: " +
@@ -209,7 +150,8 @@ public class InventoryItemService {
                     || itemJson.getString("itemTypeDisplayName").contains("Emote")) {
                 return false;
             }
-            if (itemJson.getString("itemTypeDisplayName").equals("Festival Mask")) {
+            if (itemJson.getString("itemTypeDisplayName").equals("Festival Mask")
+                    || itemJson.getString("itemTypeDisplayName").equals("Enhanced Trait")) {
                 return true;
             }
         }
@@ -234,7 +176,6 @@ public class InventoryItemService {
         ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, inventoryItemsRequest,
                 String.class);
         if (response.getStatusCode() == HttpStatus.OK) {
-            System.out.println("we got the inventory items doc!");
             return response;
         } else {
             throw new CustomException(

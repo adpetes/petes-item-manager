@@ -1,9 +1,9 @@
 import React from 'react'
 import './draggableitem.css'
-import { ItemDamageTypeSymbol } from '../../util'
+import { ItemDamageTypeSymbol } from '../../../util'
 import { RxQuestionMarkCircled } from 'react-icons/rx'
 
-function Item({ data, itemRef=null, searchText }) {
+function Item({ data, itemRef=null, searchText, handleClick }) {
 
   const getImageUrl = () => "https://bungie.net" + data.iconUrl
 
@@ -20,11 +20,16 @@ function Item({ data, itemRef=null, searchText }) {
         className='item'
         ref={itemRef}
         style={itemStyle}
-    >
+        onClick={(event) => {
+          const x = event.clientX + window.scrollX;
+          const y = event.clientY + window.scrollY;
+          handleClick({x: x, y: y}, data)
+        }}
+        >
         <img className='item-icon' src={getImageUrl()} alt={data.iconUrl}/>
         <div className='item-info'>
-        {ItemDamageTypeSymbol[data.damageType] && <img className='item-damage-type' src={ItemDamageTypeSymbol[data.damageType]} alt={data.damageType} />}
-        <span className='item-light'>{data.inventoryItemInstance.light}</span>
+          {ItemDamageTypeSymbol[data.damageType] && <img className='item-damage-type' src={ItemDamageTypeSymbol[data.damageType]} alt={data.damageType} />}
+          <span className='item-light'>{data.inventoryItemInstance.light}</span>
         </div>
     </div>
     :

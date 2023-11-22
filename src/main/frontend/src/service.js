@@ -1,9 +1,8 @@
-import axios from 'axios';
 
 async function makeRequest(address, request) {
     const updatedRequest = {
         ...request,
-        credentials: 'include' // Include cookies with the request
+        credentials: 'include'
     };
     const response = await fetch(address, updatedRequest)
     if (!response.ok) {
@@ -13,28 +12,6 @@ async function makeRequest(address, request) {
     }
     return response
 }
-
-// export async function signIn(sessionToken){
-//     const headers = {
-//         "Authorization": sessionToken
-//     }
-
-//     try {
-//         const response = await axios.post(`${process.env.REACT_APP_DOMAIN}/signin`, {}, {
-//             headers: headers,
-//             withCredentials: true
-//         });
-
-//         if (!response.data.success) {
-//             throw new Error(response.data.error.customErrorCode);
-//         }
-
-//         return response.data;
-//     } catch (error) {
-//         console.error('Error:', error);
-//         throw error;
-//     }
-// }
 
 export async function exchangeForToken(code){
     const headers = {

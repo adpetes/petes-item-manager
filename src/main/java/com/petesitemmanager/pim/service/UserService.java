@@ -88,11 +88,6 @@ public class UserService {
         user.setAccessTokenExpiry(now.getEpochSecond() + expiresIn);
         user.setRefreshTokenExpiry(now.getEpochSecond() + refreshExpiresIn);
 
-        // if (bungieId.equals(MASTER_ID)) {
-        // user.setIsMaster(true);
-        // user.setSessionToken(MASTER_SESSION_TOKEN);
-        // user.setSessionTokenExpiry(now.getEpochSecond() + 6048000L); // 100 week
-        // }
         try {
             return save(user);
         } catch (Exception e) {

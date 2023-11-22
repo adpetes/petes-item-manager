@@ -1,22 +1,22 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
-import DraggableItem from './DraggableItem'
-import DroppableContainer from './DroppableContainer'
+import DraggableItem from './draggable/DraggableItem'
+import DroppableContainer from './draggable/DroppableContainer'
 import { LocationEnum } from '../../util'
 import './inventorysection.css'
 import Cookies from 'js-cookie'
 import { equipItem, transferItem } from '../service'
 
 function InventorySection( props ) {
-    const { signOut, setTransferNotiInfo, data, setErrorMessage, searchText, isDemo } = props
+    const { signOut, setTransferNotiInfo, data, setErrorMessage, searchText, isDemo, handleItemClick } = props
     const params = useParams()
     const [characters, setCharacters] = useState()
     const [isValidTarget, setIsValidTarget] = useState(false)
 
     useEffect(() => {
-      console.log("updating from data prop")
+      // console.log("updating from data prop", data)
       const sortedData = sortData(data)
       setCharacters(sortedData)
     }, [data])
@@ -150,18 +150,18 @@ function InventorySection( props ) {
           {getCharactersWithoutVault().map((character) => (
             <div key={character.characterId} className='inventory-section-characters'> 
               <DroppableContainer isValidTarget={isValidTarget} location={LocationEnum.EQUIPPED} characterId={character.characterId} onDrop={handleDrop} styles={getStyles(stylesEquipped)}>
-                <DraggableItem onDragStart={onDragStart} data={character.equipped} location={LocationEnum.EQUIPPED} characterId={character.characterId} searchText={searchText}/>
+                <DraggableItem onDragStart={onDragStart} data={character.equipped} location={LocationEnum.EQUIPPED} characterId={character.characterId} searchText={searchText} handleClick={handleItemClick}/>
               </DroppableContainer>
               <DroppableContainer isValidTarget={isValidTarget} key={character.characterId} location={LocationEnum.INVENTORY} characterId={character.characterId} onDrop={handleDrop} styles={getStyles(stylesUnequipped)}>
                 {Object.keys(character.inventory).map((itemKey) => (
-                    <DraggableItem onDragStart={onDragStart} key={itemKey} data={character.inventory[itemKey]} characterId={character.characterId} searchText={searchText}/>
+                    <DraggableItem onDragStart={onDragStart} key={itemKey} data={character.inventory[itemKey]} characterId={character.characterId} searchText={searchText} handleClick={handleItemClick}/>
                 ))}
               </DroppableContainer>
             </div>
           ))}
           <DroppableContainer isValidTarget={isValidTarget} location={LocationEnum.VAULT} characterId={getVault().characterId} onDrop={handleDrop} styles={getStyles(stylesVault)}>
             {Object.keys(getVault().inventory).map((itemKey) => (
-                <DraggableItem onDragStart={onDragStart} key={itemKey} location={LocationEnum.VAULT} characterId={getVault().characterId} data={getVault().inventory[itemKey]} searchText={searchText} />
+                <DraggableItem onDragStart={onDragStart} key={itemKey} location={LocationEnum.VAULT} characterId={getVault().characterId} data={getVault().inventory[itemKey]} searchText={searchText} handleClick={handleItemClick} />
             ))}
           </DroppableContainer>
         </div>

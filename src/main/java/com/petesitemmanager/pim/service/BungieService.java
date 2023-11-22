@@ -24,7 +24,7 @@ import com.petesitemmanager.pim.domain.InventoryItem;
 import com.petesitemmanager.pim.domain.User;
 import com.petesitemmanager.pim.domain.enums.ClassType;
 import com.petesitemmanager.pim.domain.enums.DamageType;
-import com.petesitemmanager.pim.domain.enums.ItemType;
+import com.petesitemmanager.pim.domain.enums.ItemSubType;
 import com.petesitemmanager.pim.exception.CustomException;
 import com.petesitemmanager.pim.service.dto.CharacterDto;
 import com.petesitemmanager.pim.service.dto.InventoryItemDto;
@@ -286,9 +286,7 @@ public class BungieService {
             validateRequestBySessionToken(accountId, user);
         }
         try {
-            System.out.println("We got here!!!!!!!!!!!!");
             Map<Long, InventoryItem> inventoryItemData = inventoryItemService.getAndMayUpdateInventoryItemsMap();
-            System.out.println("We got to HERE OMMGGGG!!!!!!!!!!!!");
 
             String rawProfileData = getProfile(sessionToken, membershipType, profileId, user);
             JSONObject profileJson = (new JSONObject(rawProfileData)).getJSONObject("Response");
@@ -440,6 +438,7 @@ public class BungieService {
                     inventoryItem.getIconUrl(),
                     inventoryItem.getHashVal().toString());
             inventoryItemDto.setItemType(inventoryItem.getItemType());
+            inventoryItemDto.setItemSubType(inventoryItem.getItemSubType());
             if (!item.has("itemInstanceId") || inventoryItemDto.getItemType() == null) {
                 return null;
             }

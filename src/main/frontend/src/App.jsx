@@ -40,7 +40,10 @@ function App() {
     }
 
     const queryParams = new URLSearchParams(location.search);
-    const token = queryParams.get('sessionId');
+    let token = queryParams.get('sessionId');
+    if (!token) {
+      token = Cookies.get("sessionToken")
+    }
     checkAuthorization(token)
   }, []);
 

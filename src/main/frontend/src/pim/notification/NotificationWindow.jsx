@@ -1,6 +1,6 @@
 import React from 'react';
 import './notification.css'; // Create a CSS file for styling
-import Item from '../items/Item';
+import Item from '../inventory/draggable/Item';
 import { ErrorCodeEnum } from '../../util';
 import { FaCheckCircle } from 'react-icons/fa';
 import { BsFillXCircleFill } from 'react-icons/bs';

@@ -8,7 +8,7 @@ import { useState } from 'react'
 import Navbar from '../navbar/Navbar'
 import './pim.css'
 import NotificationWindow from './notification/NotificationWindow'
-import Inventory from './Inventory'
+import Inventory from './inventory/Inventory'
 import GridLoader from "react-spinners/GridLoader";
 
 function Pim( props ) {
@@ -21,7 +21,7 @@ function Pim( props ) {
   const [searchText, setSearchText] = useState(null)
   const [isFetchingProfile, setIsFetchingProfile] = useState(false);
 
-  const memoizedSetTransferNotiInfo = useMemo(() => setTransferNotiInfo, []); // Memoize setTransferNotiInfo
+  // const memoizedSetTransferNotiInfo = useMemo(() => setTransferNotiInfo, []);
 
   const getProfileData = async () => {
     setIsFetchingProfile(true)
@@ -39,7 +39,7 @@ function Pim( props ) {
           characterList.push(profileData[characterKey])
         }
         setCharacters(characterList)
-        console.log("profile data: ", characterList)
+        // console.log("profile data: ", characterList)
       }
       else {
         await signOut()
@@ -116,8 +116,8 @@ function Pim( props ) {
         <Navbar showSearch={true} setSearchText={setSearchText} handleRefresh={handleRefresh} isRefreshing={isFetchingProfile} handleSignOut={handleSignOut}/>
         <CharacterInfoDisplay characters={getCharacterInfo()}/>
       </div>
-      <NotificationWindow transferNotiInfo={transferNotiInfo} setTransferNotiInfo={memoizedSetTransferNotiInfo} />
-      {characters && <Inventory signOut={signOut} setTransferNotiInfo={memoizedSetTransferNotiInfo} setErrorMessage={setErrorMessage} characters={characters} searchText={searchText} isDemo={isDemo} />}
+      <NotificationWindow transferNotiInfo={transferNotiInfo} setTransferNotiInfo={setTransferNotiInfo} />
+      {characters && <Inventory signOut={signOut} setTransferNotiInfo={setTransferNotiInfo} setErrorMessage={setErrorMessage} characters={characters} searchText={searchText} isDemo={isDemo} />}
     </>
   )
 }

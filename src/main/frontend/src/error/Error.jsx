@@ -10,9 +10,9 @@ function Error( {error} ) {
       // console.log(error)
       switch (error) {
         case "Failed to fetch":
-          return "Failed to contact server. Maybe your Internet is down. Maybe my backend is down. Who knows"
+          return "Failed to contact server. Maybe your Internet is dodgy, or maybe my backend is down."
         case "1":
-          return "A request made to the Bungie API failed unexpectedly. Maybe their servers are down, or maybe there's a bug on my backend. Likely the latter"
+          return "A request made to the Bungie API failed unexpectedly. Their servers are probably down, but who knows."
         case "2":
           return "An unauthorized request was made."
         case "3":

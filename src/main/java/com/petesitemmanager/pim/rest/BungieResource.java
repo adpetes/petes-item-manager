@@ -1,11 +1,8 @@
 package com.petesitemmanager.pim.rest;
 
-import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.web.server.Cookie.SameSite;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,9 +11,6 @@ import com.petesitemmanager.pim.service.BungieService;
 import com.petesitemmanager.pim.service.dto.AuthUrlResponse;
 import com.petesitemmanager.pim.service.dto.ProfileDto;
 import com.petesitemmanager.pim.service.dto.TransferDto;
-
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
@@ -31,7 +25,6 @@ public class BungieResource {
     @GetMapping("/bungie-authorize-url")
     public ResponseEntity<?> getAuthorizationUrl() throws CustomException {
         try {
-            System.out.println("we got to the auth url.");
             String authUrl = bungieService.getAuthorizationUrl(false);
             String reauthUrl = bungieService.getAuthorizationUrl(true);
             AuthUrlResponse response = new AuthUrlResponse(authUrl, reauthUrl);
@@ -51,10 +44,11 @@ public class BungieResource {
             HttpSession session,
             HttpServletResponse response) {
         try {
-            System.out.println("we got to the callback");
             String token = bungieService.processAuthorization(authCode);
 
-            response.sendRedirect("http://pimfr.s3-website.us-east-2.amazonaws.com/?sessionId=" + token);
+            // response.sendRedirect("http://pimfr.s3-website.us-east-2.amazonaws.com/?sessionId="
+            // + token);
+            response.sendRedirect("http://localhost:3000/?sessionId=" + token);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             System.out.println(e.getLocalizedMessage());

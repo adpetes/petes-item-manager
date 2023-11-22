@@ -4,6 +4,7 @@ import Navbar from '../navbar/Navbar'
 import './login.css'
 import { Link } from 'react-router-dom';
 import Cookies from 'js-cookie';
+import { GridLoader } from 'react-spinners';
 
 function Login(props) {
   const { setErrorMessage, setIsDemo } = props
@@ -40,6 +41,7 @@ function Login(props) {
   }, []);
 
   return (
+    (authUrl && reauthUrl) ? 
     <>
       <Navbar showSearch={false}/>
       <div className='login-container'>
@@ -54,9 +56,17 @@ function Login(props) {
         <Link className='demo-mode-link' onClick={() => setIsDemo(true)} to={`/`}>
           Don't have a Destiny 2 account? Try Demo Mode
         </Link>
-
       </div>
-    </>
+    </> 
+    :
+    <div className='page-loading'>
+      <GridLoader
+        color={'white'}
+        size={20}
+        loading={true}
+      />
+      <p className='loading-text'> Retrieving Authorization Page... </p>
+    </div>
   )
 }
 
