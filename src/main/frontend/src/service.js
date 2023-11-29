@@ -1,10 +1,10 @@
 
 async function makeRequest(address, request) {
-    const updatedRequest = {
+    const requestWithCred = {
         ...request,
         credentials: 'include'
     };
-    const response = await fetch(address, updatedRequest)
+    const response = await fetch(address, requestWithCred)
     if (!response.ok) {
         const error = await response.json();
         console.log(error)

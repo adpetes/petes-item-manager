@@ -14,6 +14,5 @@ public class WebConfig implements WebMvcConfigurer {
                         "https://pim-callback-7a00565e0d62.herokuapp.com/", "http://localhost:3000")
                 .allowedMethods("GET", "POST", "PUT", "DELETE")
                 .allowCredentials(true);
-        // .allowedOrigins("http://pimfr.s3-website.us-east-2.amazonaws.com/")
     }
 }

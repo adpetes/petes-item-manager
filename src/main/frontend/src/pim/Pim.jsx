@@ -19,12 +19,11 @@ function Pim( props ) {
   const [characters, setCharacters] = useState(null)
   const [transferNotiInfo, setTransferNotiInfo] = useState(null)
   const [searchText, setSearchText] = useState(null)
-  const [isFetchingProfile, setIsFetchingProfile] = useState(false);
+  const [isFetchingProfile, setIsFetchingProfile] = useState(true);
 
   // const memoizedSetTransferNotiInfo = useMemo(() => setTransferNotiInfo, []);
 
   const getProfileData = async () => {
-    setIsFetchingProfile(true)
     try {
       const sessionToken = !isDemo ? Cookies.get("sessionToken") : process.env.REACT_APP_DEMO_TOKEN;
       const accountId = !isDemo ? Cookies.get("accountId") : process.env.REACT_APP_DEMO_ACCOUNT_ID;
@@ -48,7 +47,9 @@ function Pim( props ) {
     catch (error) {
       setErrorMessage(error.message)
     }
-    setIsFetchingProfile(false)
+    finally {
+      setIsFetchingProfile(false)
+    }
   }
 
   useEffect(() => {

@@ -28,16 +28,16 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import com.petesitemmanager.pim.domain.InventoryItem;
+import com.petesitemmanager.pim.domain.enums.MilestoneHashTranslate;
 import com.petesitemmanager.pim.exception.CustomException;
-// import com.petesitemmanager.pim.repository.InventoryItemRepository;
 
 @Service
 @Transactional
 public class InventoryItemService {
 
-    private final Logger log = LoggerFactory.getLogger(InventoryItem.class);
-
     private Map<Long, InventoryItem> inventoryItemsData = null;
+
+    private Map<Long, List<InventoryItem>> collectiblesData = null;
 
     private String manifestVersion = "";
 
@@ -54,9 +54,70 @@ public class InventoryItemService {
         return this.inventoryItemsData;
     }
 
+    public Map<Long, List<InventoryItem>> getAndMayUpdateCollectiblesMap() throws CustomException {
+        JSONObject manifest = getManifest();
+        String curManifestVersion = manifest.getJSONObject("Response").getString("version");
+        if (!curManifestVersion.equals(this.manifestVersion)) {
+            this.manifestVersion = curManifestVersion;
+            this.inventoryItemsData = getInventoryItemsMap(manifest); // collectibles depend on inventory items ->
+                                                                      // update them first
+            this.collectiblesData = getCollectiblesMap(manifest);
+        }
+        return this.collectiblesData;
+    }
+
+    public JSONObject getMilestonesManifest() throws CustomException {
+        JSONObject manifest = getManifest();
+        ResponseEntity<String> response = getManifestDefinition(manifest, "DestinyMilestoneDefinition");
+
+        return new JSONObject(response.getBody());
+    }
+
+    public JSONObject getActivityManifest() throws CustomException {
+        JSONObject manifest = getManifest();
+        ResponseEntity<String> response = getManifestDefinition(manifest, "DestinyActivityDefinition");
+
+        return new JSONObject(response.getBody());
+    }
+
+    public JSONObject getCollectiblesManifest() throws CustomException {
+        JSONObject manifest = getManifest();
+        ResponseEntity<String> response = getManifestDefinition(manifest, "DestinyCollectibleDefinition");
+
+        return new JSONObject(response.getBody());
+    }
+
+    public Map<Long, List<InventoryItem>> getCollectiblesMap(JSONObject manifest) throws CustomException {
+        ResponseEntity<String> collectiblesRes = getManifestDefinition(manifest,
+                "DestinyCollectibleDefinition");
+
+        JSONObject collectiblesJson = new JSONObject(collectiblesRes.getBody());
+        Map<Long, List<InventoryItem>> collectibles = new HashMap<>();
+
+        for (String hashValKey : collectiblesJson.keySet()) {
+            JSONObject collectible = collectiblesJson.getJSONObject(hashValKey);
+            if (collectible.has("sourceHash")) {
+                Long sourceHash = collectible.getLong("sourceHash");
+                Long milestoneHash = MilestoneHashTranslate.getType(sourceHash);
+                if (milestoneHash != null) {
+                    if (collectible.has("itemHash")) {
+                        Long itemHash = collectible.getLong("itemHash");
+                        if (inventoryItemsData.containsKey(itemHash)) {
+                            InventoryItem inventoryItem = inventoryItemsData.get(itemHash);
+                            collectibles.computeIfAbsent(milestoneHash, k -> new ArrayList<>()).add(inventoryItem);
+                        }
+                    }
+                }
+            }
+        }
+
+        return collectibles;
+    }
+
     public Map<Long, InventoryItem> getInventoryItemsMap(JSONObject manifest) throws CustomException {
         try {
-            ResponseEntity<String> inventoryItemsRes = getInventoryItemData(manifest);
+            ResponseEntity<String> inventoryItemsRes = getManifestDefinition(manifest,
+                    "DestinyInventoryItemLiteDefinition");
 
             JSONObject inventoryItemsJson = new JSONObject(inventoryItemsRes.getBody());
             Map<Long, InventoryItem> inventoryItems = new HashMap<>();
@@ -163,11 +224,12 @@ public class InventoryItemService {
         return false;
     }
 
-    private ResponseEntity<String> getInventoryItemData(JSONObject manifest) throws CustomException {
+    private ResponseEntity<String> getManifestDefinition(JSONObject manifest, String definition)
+            throws CustomException {
         String url = "https://www.bungie.net" + manifest.getJSONObject("Response")
                 .getJSONObject("jsonWorldComponentContentPaths")
                 .getJSONObject("en")
-                .getString("DestinyInventoryItemLiteDefinition");
+                .getString(definition);
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-API-Key", API_KEY);
@@ -179,7 +241,8 @@ public class InventoryItemService {
             return response;
         } else {
             throw new CustomException(
-                    "Error retrieving inventory items; status code: " + response.getStatusCodeValue());
+                    "Error retrieving manifest defintion: " + definition + "; status code: "
+                            + response.getStatusCodeValue());
         }
     }
 
@@ -200,18 +263,5 @@ public class InventoryItemService {
                     "Error retrieving inventory items; status code: " + response.getStatusCodeValue());
         }
     }
-
-    // public List<InventoryItem> getInventoryItemsByList(JSONArray jsonItems) {
-    // List<Long> itemHashList = new ArrayList<>();
-
-    // for (int i = 0; i < jsonItems.length(); i++) {
-    // Long itemHash = jsonItems.getJSONObject(i).getLong("itemHash");
-    // itemHashList.add(itemHash);
-    // }
-
-    // List<InventoryItem> items =
-    // inventoryItemRepository.findAllByHashValIn(itemHashList);
-    // return items;
-    // }
 
 }

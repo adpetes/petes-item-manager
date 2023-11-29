@@ -4,9 +4,12 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+
 import javax.servlet.http.HttpSession;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,12 +27,16 @@ import com.petesitemmanager.pim.domain.InventoryItem;
 import com.petesitemmanager.pim.domain.User;
 import com.petesitemmanager.pim.domain.enums.ClassType;
 import com.petesitemmanager.pim.domain.enums.DamageType;
+import com.petesitemmanager.pim.domain.enums.DungeonHash;
 import com.petesitemmanager.pim.domain.enums.ItemSubType;
+import com.petesitemmanager.pim.domain.enums.RaidHash;
 import com.petesitemmanager.pim.exception.CustomException;
 import com.petesitemmanager.pim.service.dto.CharacterDto;
 import com.petesitemmanager.pim.service.dto.InventoryItemDto;
 import com.petesitemmanager.pim.service.dto.InventoryItemInstanceDto;
+import com.petesitemmanager.pim.service.dto.MilestoneDto;
 import com.petesitemmanager.pim.service.dto.ProfileDto;
+import com.petesitemmanager.pim.service.dto.RotationDto;
 import com.petesitemmanager.pim.service.dto.StatDto;
 import com.petesitemmanager.pim.service.dto.TransferDto;
 import com.petesitemmanager.pim.service.dto.VaultDto;
@@ -351,7 +358,8 @@ public class BungieService {
                 JSONObject item = profileVault.getJSONObject(i);
                 Long key = item.getLong("itemHash");
                 InventoryItem inventoryItem = inventoryItemData.get(key);
-                InventoryItemDto inventoryItemDto = createInventoryItemDto(item, inventoryItem, itemDetails, false,
+                InventoryItemDto inventoryItemDto = createInventoryItemDtoForManager(item, inventoryItem, itemDetails,
+                        false,
                         inventoryItemData);
                 if (inventoryItemDto != null) {
                     vault.addToItemInventory(inventoryItemDto.getInventoryItemInstance().getInstanceItemId(),
@@ -391,7 +399,8 @@ public class BungieService {
                 JSONObject item = characterEquipment.getJSONObject(i);
                 Long key = item.getLong("itemHash");
                 InventoryItem inventoryItem = inventoryItemData.get(key);
-                InventoryItemDto inventoryItemDto = createInventoryItemDto(item, inventoryItem, itemDetails, true,
+                InventoryItemDto inventoryItemDto = createInventoryItemDtoForManager(item, inventoryItem, itemDetails,
+                        true,
                         inventoryItemData);
                 if (inventoryItemDto != null) {
                     character.setEquippedItem(inventoryItemDto);
@@ -404,7 +413,8 @@ public class BungieService {
                 if (item.getInt("location") == 4) {
                     continue;
                 }
-                InventoryItemDto inventoryItemDto = createInventoryItemDto(item, inventoryItem, itemDetails, false,
+                InventoryItemDto inventoryItemDto = createInventoryItemDtoForManager(item, inventoryItem, itemDetails,
+                        false,
                         inventoryItemData);
                 if (inventoryItemDto != null) {
                     character.addToItemInventory(inventoryItemDto.getInventoryItemInstance().getInstanceItemId(),
@@ -426,7 +436,7 @@ public class BungieService {
         }
     }
 
-    private InventoryItemDto createInventoryItemDto(JSONObject item, InventoryItem inventoryItem,
+    private InventoryItemDto createInventoryItemDtoForManager(JSONObject item, InventoryItem inventoryItem,
             JSONObject itemDetails, boolean forEquipped, Map<Long, InventoryItem> inventoryItemData)
             throws CustomException {
         if (inventoryItem == null) {
@@ -707,6 +717,207 @@ public class BungieService {
                             transferDto.getInventoryItemInstance().getInstanceItemId(), profileId,
                             message != null ? message : e.getLocalizedMessage()),
                     errorCode != null ? errorCode : 1);
+        }
+    }
+
+    private String getMilestoneJsonData() throws CustomException {
+        String url = "https://www.bungie.net/Platform/Destiny2/Milestones/";
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-API-Key", API_KEY);
+
+        HttpEntity<String> request = new HttpEntity<>(headers);
+        RestTemplate template = new RestTemplate();
+        ResponseEntity<String> response = null;
+        try {
+            response = template.exchange(url, HttpMethod.GET, request, String.class);
+        } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
+            throw new CustomException("Unable to connect to Bungie API while requesting character data", 1);
+        }
+
+        if (response.getStatusCode() == HttpStatus.OK) {
+            return response.getBody();
+        } else {
+            throw new CustomException(String.format("Error retrieving milestone rotation data", 3));
+        }
+    }
+
+    public RotationDto getMilestoneRotationData() throws CustomException {
+        JSONObject milestoneJson = (new JSONObject(getMilestoneJsonData())).getJSONObject("Response");
+        JSONObject activityManifestJson = inventoryItemService.getActivityManifest();
+        RotationDto rotation = new RotationDto();
+
+        rotation.addMilestone("weekly raid", getRaidRotationData(milestoneJson, activityManifestJson));
+        rotation.addMilestone("weekly dungeon", getDungeonRotationData(milestoneJson, activityManifestJson));
+        rotation.addMilestone("weekly exotic mission",
+                getExoticMissionRotationData(milestoneJson, activityManifestJson));
+        rotation.addMilestone("weekly nightfall", getNightfallRotationData(milestoneJson, activityManifestJson));
+        rotation.addMilestone("weekly partition", getPartitionRotationData(milestoneJson, activityManifestJson));
+
+        return rotation;
+    }
+
+    private MilestoneDto getPartitionRotationData(JSONObject milestoneJson, JSONObject activityManifestJson)
+            throws CustomException {
+        try {
+            String partitionHash = "3446833552";
+            Long partitionActivity = milestoneJson.getJSONObject(partitionHash)
+                    .getJSONArray("activities")
+                    .getJSONObject(0)
+                    .getLong("activityHash");
+
+            JSONObject activity = activityManifestJson.getJSONObject(Long.toString(partitionActivity));
+            String description = activity.getJSONObject("originalDisplayProperties").getString("description");
+            String name = activity.getJSONObject("originalDisplayProperties").getString("name");
+            String iconUrl = activity.getString("pgcrImage");
+            return new MilestoneDto(name, iconUrl, description);
+        } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
+            throw new CustomException(
+                    String.format("Failed to create partition milestone. Error: %s", e.getLocalizedMessage()), 4);
+        }
+    }
+
+    private MilestoneDto getNightfallRotationData(JSONObject milestoneJson, JSONObject activityManifestJson)
+            throws CustomException {
+        try {
+            String nightfallHash = "2029743966";
+            Long nightfallActivityHash = milestoneJson.getJSONObject(nightfallHash)
+                    .getJSONArray("activities")
+                    .getJSONObject(0)
+                    .getLong("activityHash");
+
+            JSONObject activity = activityManifestJson.getJSONObject(Long.toString(nightfallActivityHash));
+            String description = activity.getJSONObject("originalDisplayProperties").getString("description");
+            String name = activity.getJSONObject("originalDisplayProperties").getString("name");
+            String iconUrl = activity.getString("pgcrImage");
+            return new MilestoneDto(name, iconUrl, description);
+        } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
+            throw new CustomException(
+                    String.format("Failed to create nightfall milestone. Error: %s", e.getLocalizedMessage()), 4);
+        }
+    }
+
+    private MilestoneDto getExoticMissionRotationData(JSONObject milestoneJson, JSONObject activityManifestJson)
+            throws CustomException {
+        try {
+            String exoticMissionHash = "4244749316";
+            Long exoticMissionActivityHash = milestoneJson.getJSONObject(exoticMissionHash)
+                    .getJSONArray("activities")
+                    .getJSONObject(0)
+                    .getLong("activityHash");
+
+            JSONObject activity = activityManifestJson.getJSONObject(Long.toString(exoticMissionActivityHash));
+            String description = activity.getJSONObject("originalDisplayProperties").getString("description");
+            String name = activity.getJSONObject("originalDisplayProperties").getString("name");
+            String iconUrl = activity.getString("pgcrImage");
+            MilestoneDto milestone = new MilestoneDto(name, iconUrl, description);
+            List<InventoryItem> potentialRewards = inventoryItemService.getAndMayUpdateCollectiblesMap()
+                    .get(exoticMissionActivityHash);
+            Set<String> addedRewards = new HashSet<>();
+            for (InventoryItem reward : potentialRewards) {
+                if (reward != null && !addedRewards.contains(reward.getName())) {
+                    milestone.addReward(reward);
+                    addedRewards.add(reward.getName());
+                }
+            }
+            return milestone;
+        } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
+            throw new CustomException(
+                    String.format("Failed to create exotic mission milestone. Error: %s", e.getLocalizedMessage()), 4);
+        }
+
+    }
+
+    private MilestoneDto getDungeonRotationData(JSONObject milestoneJson, JSONObject activityManifestJson)
+            throws CustomException {
+        try {
+            for (Long dungeonHash : DungeonHash.dungeonMap.keySet()) {
+                String dungeonHashStr = Long.toString(dungeonHash);
+                if (milestoneJson.has(dungeonHashStr)) {
+                    JSONObject dungeonMilestone = milestoneJson.getJSONObject(dungeonHashStr);
+                    if (dungeonMilestone.has("activities")) {
+                        JSONObject activity = dungeonMilestone.getJSONArray("activities")
+                                .getJSONObject(0);
+                        JSONArray objectives = activity.getJSONArray("challengeObjectiveHashes");
+
+                        Integer numChallenges = objectives.length();
+                        if (numChallenges > 0) {
+                            JSONObject dungeonDetails = activityManifestJson
+                                    .getJSONObject(Long.toString(activity.getLong("activityHash")));
+                            String name = dungeonDetails.getJSONObject("originalDisplayProperties").getString("name");
+                            String iconUrl = dungeonDetails.getString("pgcrImage");
+                            String description = dungeonDetails.getJSONObject("originalDisplayProperties")
+                                    .getString("description");
+                            MilestoneDto milestone = new MilestoneDto(name, iconUrl, description);
+                            List<InventoryItem> potentialRewards = inventoryItemService.getAndMayUpdateCollectiblesMap()
+                                    .get(dungeonHash);
+                            Set<String> addedRewards = new HashSet<>(); // Collectibles manifest from API contains
+                                                                        // duplicates,
+                                                                        // so check for duped names
+                            for (InventoryItem reward : potentialRewards) {
+                                if (reward != null && !addedRewards.contains(reward.getName())
+                                        && reward.getItemType() != 4274335291L) {
+                                    milestone.addReward(reward);
+                                    addedRewards.add(reward.getName());
+                                }
+                            }
+
+                            return milestone;
+                        }
+                    }
+                }
+            }
+            throw new CustomException("Failed to find information pertaining to the weekly dungeon", 4);
+        } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
+            throw new CustomException(
+                    String.format("Failed to create exotic mission milestone. Error: %s", e.getLocalizedMessage()), 4);
+        }
+    }
+
+    private MilestoneDto getRaidRotationData(JSONObject milestoneJson, JSONObject activityManifestJson)
+            throws CustomException {
+        try {
+            for (Long raidHash : RaidHash.raidMap.keySet()) {
+                String raidHashStr = Long.toString(raidHash);
+                if (milestoneJson.has(raidHashStr)) {
+                    JSONObject activity = milestoneJson.getJSONObject(raidHashStr)
+                            .getJSONArray("activities")
+                            .getJSONObject(0);
+                    JSONObject booleanActivityOptions = activity.getJSONObject("booleanActivityOptions");
+                    Integer numOptions = booleanActivityOptions.length();
+                    if (numOptions > 2) {
+                        JSONObject raidDetails = activityManifestJson
+                                .getJSONObject(Long.toString(activity.getLong("activityHash")));
+                        String name = raidDetails.getJSONObject("originalDisplayProperties").getString("name");
+                        String iconUrl = raidDetails.getString("pgcrImage");
+                        String description = raidDetails.getJSONObject("originalDisplayProperties")
+                                .getString("description");
+                        MilestoneDto milestone = new MilestoneDto(name, iconUrl, description);
+                        List<InventoryItem> potentialRewards = inventoryItemService.getAndMayUpdateCollectiblesMap()
+                                .get(raidHash);
+                        Set<String> addedRewards = new HashSet<>(); // Collectibles manifest from API contains
+                                                                    // duplicates,
+                                                                    // so check for duped names
+                        for (InventoryItem reward : potentialRewards) {
+                            if (reward != null && !addedRewards.contains(reward.getName())
+                                    && reward.getItemType() != 4274335291L) {
+                                milestone.addReward(reward);
+                                addedRewards.add(reward.getName());
+                            }
+                        }
+                        return milestone;
+                    }
+                }
+            }
+            throw new CustomException("Failed to find information pertaining to the weekly raid", 4);
+        } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
+            throw new CustomException(
+                    String.format("Failed to create exotic mission milestone. Error: %s", e.getLocalizedMessage()), 4);
         }
     }
 }

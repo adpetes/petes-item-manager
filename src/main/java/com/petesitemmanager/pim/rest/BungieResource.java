@@ -9,7 +9,9 @@ import org.springframework.web.bind.annotation.*;
 import com.petesitemmanager.pim.exception.CustomException;
 import com.petesitemmanager.pim.service.BungieService;
 import com.petesitemmanager.pim.service.dto.AuthUrlResponse;
+import com.petesitemmanager.pim.service.dto.MilestoneDto;
 import com.petesitemmanager.pim.service.dto.ProfileDto;
+import com.petesitemmanager.pim.service.dto.RotationDto;
 import com.petesitemmanager.pim.service.dto.TransferDto;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
@@ -46,9 +48,9 @@ public class BungieResource {
         try {
             String token = bungieService.processAuthorization(authCode);
 
-            // response.sendRedirect("http://pimfr.s3-website.us-east-2.amazonaws.com/?sessionId="
+            // response.sendRedirect("http://pimfr.s3-website.us-east-2.amazonaws.com/inventory/?sessionId="
             // + token);
-            response.sendRedirect("http://localhost:3000/?sessionId=" + token);
+            response.sendRedirect("http://localhost:3000/inventory/?sessionId=" + token);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             System.out.println(e.getLocalizedMessage());
@@ -162,6 +164,19 @@ public class BungieResource {
                         transferDto);
             }
             return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(e);
+        }
+    }
+
+    @GetMapping("/milestone-rotation")
+    public ResponseEntity<?> getMilestoneRotation() {
+        try {
+            RotationDto rotation = bungieService.getMilestoneRotationData();
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("Content-Type", "application/json");
+            return ResponseEntity.ok().headers(headers).body(rotation);
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                     .body(e);

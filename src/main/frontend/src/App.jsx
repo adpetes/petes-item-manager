@@ -8,6 +8,8 @@ import Error from './error/Error';
 import Login from './login/Login';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Pim from './pim/Pim';
+import News from './news/News';
+import About from './about/About';
 
 function App() {
 
@@ -63,7 +65,7 @@ function App() {
       if (sessionToken) {
         await signOut(sessionToken)
       }
-      const cookies = Cookies.get(); // Get an object containing all cookies
+      const cookies = Cookies.get();
       Object.keys(cookies).forEach(cookieName => {
         Cookies.remove(cookieName);
       });
@@ -86,14 +88,14 @@ function App() {
         return <Navigate to={`/inventory/${profileId}/${membershipType}/?${queryParam.toString()}`} />
       }
       else {
-        return <Navigate to='/profile-select' />
+        return <Navigate to='/inventory/profile-select' />
       }
     }
     else if (isDemo) {
       return <Navigate to={`/inventory/${process.env.REACT_APP_DEMO_PROFILE_ID}/${process.env.REACT_APP_DEMO_MEMBERSHIP_TYPE}?${queryParam.toString()}`} />
     }
     else {
-      return <Navigate to='/login' />
+      return <Navigate to='/inventory/login' />
     }
   }
   
@@ -101,10 +103,12 @@ function App() {
       !isCheckingAuthorization ? 
       <>
         <Routes>
-          <Route path="/login" element={<Login setErrorMessage={setErrorMessage} setIsDemo={setIsDemo} />} />
-          <Route path="/profile-select" element={isAuthorized ? <ProfileSelect signOut={handleSignOut} setErrorMessage={setErrorMessage} /> : <Navigate to="/login" />} />
-          <Route path="/inventory/:profileId/:membershipType" element={(isAuthorized || isDemo) ? <Pim signOut={handleSignOut} setErrorMessage={setErrorMessage} isDemo={isDemo} /> : <Navigate to="/login" />} />
-          <Route path="/" element={determinePath()}/>
+          <Route path="/inventory/login" element={<Login setErrorMessage={setErrorMessage} setIsDemo={setIsDemo} />} />
+          <Route path="/inventory/profile-select" element={isAuthorized ? <ProfileSelect signOut={handleSignOut} setErrorMessage={setErrorMessage} /> : <Navigate to="/inventory/login" />} />
+          <Route path="/inventory/:profileId/:membershipType" element={(isAuthorized || isDemo) ? <Pim signOut={handleSignOut} setErrorMessage={setErrorMessage} isDemo={isDemo} /> : <Navigate to="/inventory/login" />} />
+          <Route path="/inventory" element={determinePath()}/>
+          <Route path="/about" element={<About handleSignOut={handleSignOut}/>}/>
+          <Route path="/" element={<News setErrorMessage={setErrorMessage} handleSignOut={handleSignOut} />}/>
           <Route path="/*" element={<Error error={'404'}/>} />
           <Route path="/error" element={<Error error={errorMessage} />} />
         </Routes>

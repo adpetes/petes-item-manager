@@ -29,7 +29,7 @@ function Item({ data, itemRef=null, searchText, handleClick }) {
         <img className='item-icon' src={getImageUrl()} alt={data.iconUrl}/>
         <div className='item-info'>
           {ItemDamageTypeSymbol[data.damageType] && <img className='item-damage-type' src={ItemDamageTypeSymbol[data.damageType]} alt={data.damageType} />}
-          <span className='item-light'>{data.inventoryItemInstance.light}</span>
+          {data.inventoryItemInstance && <span className='item-light'>{data.inventoryItemInstance.light}</span>}
         </div>
     </div>
     :

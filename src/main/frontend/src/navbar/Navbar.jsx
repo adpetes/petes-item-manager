@@ -3,10 +3,13 @@ import './navbar.css'
 import { FaSearch, FaSync, FaTimesCircle } from 'react-icons/fa';
 import { GoSignOut } from 'react-icons/go'
 import logo from '../images/logo.png'
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 
 function Navbar( props ) {
   const {showSearch, setSearchText, handleRefresh, isRefreshing, handleSignOut} = props
   const [inputValue, setInputValue] = useState('');
+
+  const nav = useNavigate();
 
   const handleClearInput = () => {
     setInputValue('')
@@ -26,11 +29,24 @@ function Navbar( props ) {
     await handleRefresh()
   }
 
+  const navStyles = () => {
+
+  }
+
   return (
     <div className='navbar'>
         <div className='left-container'>
             {showSearch && <GoSignOut className='sign-out' onClick={handleSignOut}/>}
-            <img src={logo} className='logo' alt='logo'/>
+            <img src={logo} className='logo' alt='logo' onClick={() => nav('/')}/>
+            <NavLink className={({isActive}) => isActive ? "navbar-link-active": "navbar-link" } exact to='/'>
+                Weekly Rotation
+              </NavLink>
+              <NavLink className={({isActive}) => isActive ? "navbar-link-active": "navbar-link" } to='/inventory'>
+                Inventory
+              </NavLink>
+              <NavLink className={({isActive}) => isActive ? "navbar-link-active": "navbar-link" } to='/about'>
+                About PIM
+              </NavLink>
         </div>
         <div className={showSearch ? 'middle-container' : 'container-empty'}>
             {showSearch && 
@@ -41,6 +57,7 @@ function Navbar( props ) {
                 {/* <FaEllipsisV className='ellipsis-icon'/>
                 <FaChevronDown className='chevron-down-icon'/> */}
               </>}
+              
         </div>
         {showSearch && <div className='right-container'>
             <FaSync className={isRefreshing ? 'spin-animation' : 'sync-icon'} onClick={refresh}/>
