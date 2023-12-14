@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import './news.css'
-import { Link, Navigate } from 'react-router-dom'
+import ItemInfoModal from '../pim/inventory/iteminfo/ItemInfoModal'
 import Navbar from '../navbar/Navbar'
 import { getMilestoneRotation } from './service'
 import { GridLoader } from 'react-spinners'
-import Item from '../pim/inventory/draggable/Item'
 import CountdownTimer from './countdown/CountdownTimer'
 
 function News( props ) {
@@ -12,6 +11,16 @@ function News( props ) {
 
     const [rotationData, setRotationData] = useState(null)
     const [loading, setLoading] = useState(true)
+    const [itemInfoVisible, setItemInfoVisible] = useState(false)
+    const [itemInfo, setItemInfo] = useState({data: {}, position: {}})
+
+    const handleItemInfoClose = () => setItemInfoVisible(false)
+
+    const handleItemClick = (position, data) => {
+        console.log(position, data)
+        setItemInfoVisible(true)
+        setItemInfo({data: data, position: position})
+    }
 
     useEffect(() => {
         const getRotationData = async () => {
@@ -29,6 +38,17 @@ function News( props ) {
         getRotationData()
     }, [])
 
+    // const eventAction = (e) => {
+    //     if (typeof e.target.className === "string" && !e.target.className.includes("item")) {
+    //       handleItemInfoClose()
+    //     }
+    // }
+  
+    // useEffect(() => {
+    //     document.addEventListener("click", eventAction)
+    //     return () => document.removeEventListener("click", eventAction);
+    // }, [itemInfoVisible])
+
     return (
         <div>
             <Navbar showSearch={false} handleSignOut={handleSignOut} />
@@ -39,6 +59,7 @@ function News( props ) {
                     loading={loading} />
                 <p className='loading-text'> Retrieving Weekly Rotation Data... </p>
             </div>}
+            <ItemInfoModal handleClose={handleItemInfoClose} data={itemInfo.data} position={itemInfo.position} visible={itemInfoVisible}/>
             <div className='news-countdown'> 
                 <CountdownTimer/>
             </div>
@@ -62,9 +83,19 @@ function News( props ) {
                                     Rewards
                                 </div>
                                 <div className='news-item-rewards'> 
-                                    {value.rewards.map((rewardItem) => (<div key={rewardItem.hashVal} className='news-item-reward'>  
-                                            <img className='news-item-reward-icon' src={`https://bungie.net${rewardItem.iconUrl}`} />
-                                        </div>)
+                                    {value.rewards.map((rewardItem) => (
+                                        <div 
+                                            onMouseEnter={(event) => {
+                                                const x = event.clientX + window.scrollX;
+                                                const y = event.clientY + window.scrollY + 40;
+                                                handleItemClick({x: x, y: y}, rewardItem)
+                                            }}
+                                            onMouseLeave={handleItemInfoClose}
+                                            key={rewardItem.hashVal} 
+                                            className='news-item-reward'
+                                        >  
+                                        <img className='news-item-reward-icon' src={`https://bungie.net${rewardItem.iconUrl}`} />
+                                    </div>)
                                     )}
                                 </div>
                             </>

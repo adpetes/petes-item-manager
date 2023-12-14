@@ -53,7 +53,7 @@ function Login(props) {
         {reauthUrl && <button className='reauthorize-button' onClick={() => handleAuthorizeButtonClick(true)}>
           Log in with a different Bungie.net account
         </button>}
-        <Link className='demo-mode-link' onClick={() => setIsDemo(true)} to={`/`}>
+        <Link className='demo-mode-link' onClick={() => setIsDemo(true)} to={`/inventory`}>
           Don't have a Destiny 2 account? Try Demo Mode
         </Link>
       </div>

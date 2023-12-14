@@ -3,47 +3,47 @@ import './countdowntimer.css'
 
 function CountdownTimer() {
   const calculateNextTuesday = () => {
-    const now = new Date();
-    const daysUntilTuesday = (2 + 7 - now.getDay()) % 7; 
-    const nextTuesday = new Date(now);
-    nextTuesday.setDate(now.getDate() + daysUntilTuesday);
-    nextTuesday.setHours(10, 0, 0, 0); 
+    const now = new Date()
+    const daysUntilTuesday = (2 + 7 - now.getDay()) % 7
+    const nextTuesday = new Date(now)
+    nextTuesday.setDate(now.getDate() + daysUntilTuesday)
+    nextTuesday.setHours(10, 0, 0, 0)
+    // console.log("days until tue", daysUntilTuesday)
 
     return nextTuesday;
   };
 
   const calculateTimeRemaining = () => {
-    const now = new Date();
-    const targetDate = calculateNextTuesday();
-    const difference = targetDate - now;
+    const now = new Date()
+    const targetDate = calculateNextTuesday()
+    const difference = targetDate - now
 
-    const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+    const days = Math.floor(difference / (1000 * 60 * 60 * 24))
+    const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+    const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60))
+    const seconds = Math.floor((difference % (1000 * 60)) / 1000)
 
-    const paddedHours = hours.toString().padStart(2, '0');
-    const paddedMinutes = minutes.toString().padStart(2, '0');
-    const paddedSeconds = seconds.toString().padStart(2, '0');
+    const paddedHours = hours.toString().padStart(2, '0')
+    const paddedMinutes = minutes.toString().padStart(2, '0')
+    const paddedSeconds = seconds.toString().padStart(2, '0')
 
-    return { days: days, hours: paddedHours, minutes: paddedMinutes, seconds: paddedSeconds, targetDate };
+    return { days: days, hours: paddedHours, minutes: paddedMinutes, seconds: paddedSeconds, targetDate }
   };
 
-  const [timeRemaining, setTimeRemaining] = useState(calculateTimeRemaining());
+  const [timeRemaining, setTimeRemaining] = useState(calculateTimeRemaining())
 
   useEffect(() => {
     const timer = setInterval(() => {
-      const newTimeRemaining = calculateTimeRemaining();
-      setTimeRemaining(newTimeRemaining);
+      const newTimeRemaining = calculateTimeRemaining()
+      setTimeRemaining(newTimeRemaining)
 
       if (newTimeRemaining.targetDate <= new Date()) {
-        const nextTuesday = calculateNextTuesday();
-        setTimeRemaining(calculateTimeRemaining());
+        setTimeRemaining(calculateTimeRemaining())
       }
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, []);
+    return () => clearInterval(timer)
+  }, [])
 
   return (
     <div className='countdown-container'>
@@ -59,4 +59,4 @@ function CountdownTimer() {
   );
 };
 
-export default CountdownTimer;
+export default CountdownTimer

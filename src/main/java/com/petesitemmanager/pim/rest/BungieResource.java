@@ -48,9 +48,8 @@ public class BungieResource {
         try {
             String token = bungieService.processAuthorization(authCode);
 
-            // response.sendRedirect("http://pimfr.s3-website.us-east-2.amazonaws.com/inventory/?sessionId="
-            // + token);
-            response.sendRedirect("http://localhost:3000/inventory/?sessionId=" + token);
+            response.sendRedirect("http://pimfr.s3-website.us-east-2.amazonaws.com/inventory/?sessionId=" + token);
+            // response.sendRedirect("http://localhost:3000/inventory/?sessionId=" + token);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             System.out.println(e.getLocalizedMessage());

@@ -38,7 +38,7 @@ function Navbar( props ) {
         <div className='left-container'>
             {showSearch && <GoSignOut className='sign-out' onClick={handleSignOut}/>}
             <img src={logo} className='logo' alt='logo' onClick={() => nav('/')}/>
-            <NavLink className={({isActive}) => isActive ? "navbar-link-active": "navbar-link" } exact to='/'>
+            <NavLink className={({isActive}) => isActive ? "navbar-link-active": "navbar-link" } exact="true" to='/'>
                 Weekly Rotation
               </NavLink>
               <NavLink className={({isActive}) => isActive ? "navbar-link-active": "navbar-link" } to='/inventory'>

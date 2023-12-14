@@ -26,7 +26,6 @@ function Inventory(props) {
         handleItemInfoClose()
       }
     }
-    // two bugs: add grenade launcher stats to inventoryItemInstance objects on backend and add enhanced perks to stats
 
     useEffect(() => {
       document.addEventListener("click", eventAction)

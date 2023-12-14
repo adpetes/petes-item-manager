@@ -40,11 +40,11 @@ function ItemInfoModal( props ) {
                     </div>
                     <div className='item-info-light'>
                         {ItemDamageTypeSymbol[data.damageType] && <img className='item-info-damage-type' src={ItemDamageTypeSymbol[data.damageType]} alt={data.damageType} />}
-                        {data.inventoryItemInstance.light}
+                        {data.inventoryItemInstance && data.inventoryItemInstance.light}
                     </div>
                 </div>
             </div>
-            <div className='item-info-body'>
+            {data.inventoryItemInstance && <div className='item-info-body'>
                 <div className='item-info-stats'>
                     {getCleanStatsData().map((stat) => {
                         return <div key={stat.statType} className='item-info-stat-section'>
@@ -76,7 +76,7 @@ function ItemInfoModal( props ) {
                         // <img className='item-info-perk-img' key={perk.hashVal} alt={perk.hashVal} src={"https://www.bungie.net" + perk.iconUrl} />
                     ))}
                 </div>
-            </div>
+            </div>}
         </div>
     )
 }

@@ -1,20 +1,15 @@
 package com.petesitemmanager.pim.service;
 
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import javax.servlet.http.HttpSession;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.jackson.JsonComponentModule;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -26,9 +21,7 @@ import org.springframework.web.client.RestTemplate;
 import com.petesitemmanager.pim.domain.InventoryItem;
 import com.petesitemmanager.pim.domain.User;
 import com.petesitemmanager.pim.domain.enums.ClassType;
-import com.petesitemmanager.pim.domain.enums.DamageType;
 import com.petesitemmanager.pim.domain.enums.DungeonHash;
-import com.petesitemmanager.pim.domain.enums.ItemSubType;
 import com.petesitemmanager.pim.domain.enums.RaidHash;
 import com.petesitemmanager.pim.exception.CustomException;
 import com.petesitemmanager.pim.service.dto.CharacterDto;
@@ -474,8 +467,6 @@ public class BungieService {
                 return null;
             }
             if (inventoryItem.getDamageType() != null) {
-                // figure out why damage type null in some records (not emblems) and maybe
-                // change all ints to Integer
                 inventoryItemDto.setDamageType(inventoryItem.getDamageType());
             }
             inventoryItemInstanceDto.setInstanceItemId(instanceItemId);
@@ -747,10 +738,24 @@ public class BungieService {
         JSONObject activityManifestJson = inventoryItemService.getActivityManifest();
         RotationDto rotation = new RotationDto();
 
+        // Exotic mission milestone hash in the manifest changes weekly. Try all
+        // possibilities
+        String[] exoticMissionHashes = { "1027301269", "4244749316", "3557475774" };
+        MilestoneDto exoticMissionMilestone = null;
+        for (String hash : exoticMissionHashes) {
+            exoticMissionMilestone = getExoticMissionRotationData(milestoneJson, activityManifestJson, hash);
+            if (exoticMissionMilestone != null) {
+                rotation.addMilestone("weekly exotic mission", exoticMissionMilestone);
+                break;
+            }
+        }
+        if (exoticMissionMilestone == null) {
+            System.out.println("Failed to create exotic mission milestone.");
+            throw new CustomException(
+                    String.format("Failed to create exotic mission milestone."), 4);
+        }
         rotation.addMilestone("weekly raid", getRaidRotationData(milestoneJson, activityManifestJson));
         rotation.addMilestone("weekly dungeon", getDungeonRotationData(milestoneJson, activityManifestJson));
-        rotation.addMilestone("weekly exotic mission",
-                getExoticMissionRotationData(milestoneJson, activityManifestJson));
         rotation.addMilestone("weekly nightfall", getNightfallRotationData(milestoneJson, activityManifestJson));
         rotation.addMilestone("weekly partition", getPartitionRotationData(milestoneJson, activityManifestJson));
 
@@ -799,10 +804,10 @@ public class BungieService {
         }
     }
 
-    private MilestoneDto getExoticMissionRotationData(JSONObject milestoneJson, JSONObject activityManifestJson)
+    private MilestoneDto getExoticMissionRotationData(JSONObject milestoneJson, JSONObject activityManifestJson,
+            String exoticMissionHash)
             throws CustomException {
         try {
-            String exoticMissionHash = "4244749316";
             Long exoticMissionActivityHash = milestoneJson.getJSONObject(exoticMissionHash)
                     .getJSONArray("activities")
                     .getJSONObject(0)
@@ -812,23 +817,16 @@ public class BungieService {
             String description = activity.getJSONObject("originalDisplayProperties").getString("description");
             String name = activity.getJSONObject("originalDisplayProperties").getString("name");
             String iconUrl = activity.getString("pgcrImage");
+
             MilestoneDto milestone = new MilestoneDto(name, iconUrl, description);
             List<InventoryItem> potentialRewards = inventoryItemService.getAndMayUpdateCollectiblesMap()
                     .get(exoticMissionActivityHash);
-            Set<String> addedRewards = new HashSet<>();
-            for (InventoryItem reward : potentialRewards) {
-                if (reward != null && !addedRewards.contains(reward.getName())) {
-                    milestone.addReward(reward);
-                    addedRewards.add(reward.getName());
-                }
-            }
+            milestone.setRewards(createMilestoneRewards(potentialRewards));
+
             return milestone;
         } catch (Exception e) {
-            System.out.println(e.getLocalizedMessage());
-            throw new CustomException(
-                    String.format("Failed to create exotic mission milestone. Error: %s", e.getLocalizedMessage()), 4);
+            return null;
         }
-
     }
 
     private MilestoneDto getDungeonRotationData(JSONObject milestoneJson, JSONObject activityManifestJson)
@@ -851,19 +849,11 @@ public class BungieService {
                             String iconUrl = dungeonDetails.getString("pgcrImage");
                             String description = dungeonDetails.getJSONObject("originalDisplayProperties")
                                     .getString("description");
+
                             MilestoneDto milestone = new MilestoneDto(name, iconUrl, description);
                             List<InventoryItem> potentialRewards = inventoryItemService.getAndMayUpdateCollectiblesMap()
                                     .get(dungeonHash);
-                            Set<String> addedRewards = new HashSet<>(); // Collectibles manifest from API contains
-                                                                        // duplicates,
-                                                                        // so check for duped names
-                            for (InventoryItem reward : potentialRewards) {
-                                if (reward != null && !addedRewards.contains(reward.getName())
-                                        && reward.getItemType() != 4274335291L) {
-                                    milestone.addReward(reward);
-                                    addedRewards.add(reward.getName());
-                                }
-                            }
+                            milestone.setRewards(createMilestoneRewards(potentialRewards));
 
                             return milestone;
                         }
@@ -896,19 +886,12 @@ public class BungieService {
                         String iconUrl = raidDetails.getString("pgcrImage");
                         String description = raidDetails.getJSONObject("originalDisplayProperties")
                                 .getString("description");
+
                         MilestoneDto milestone = new MilestoneDto(name, iconUrl, description);
                         List<InventoryItem> potentialRewards = inventoryItemService.getAndMayUpdateCollectiblesMap()
                                 .get(raidHash);
-                        Set<String> addedRewards = new HashSet<>(); // Collectibles manifest from API contains
-                                                                    // duplicates,
-                                                                    // so check for duped names
-                        for (InventoryItem reward : potentialRewards) {
-                            if (reward != null && !addedRewards.contains(reward.getName())
-                                    && reward.getItemType() != 4274335291L) {
-                                milestone.addReward(reward);
-                                addedRewards.add(reward.getName());
-                            }
-                        }
+                        milestone.setRewards(createMilestoneRewards(potentialRewards));
+
                         return milestone;
                     }
                 }
@@ -919,5 +902,28 @@ public class BungieService {
             throw new CustomException(
                     String.format("Failed to create exotic mission milestone. Error: %s", e.getLocalizedMessage()), 4);
         }
+    }
+
+    private List<InventoryItemDto> createMilestoneRewards(List<InventoryItem> potentialRewards) {
+        Set<String> addedRewards = new HashSet<>(); // Collectibles manifest from API contains
+        List<InventoryItemDto> rewards = new ArrayList<>();
+
+        for (InventoryItem reward : potentialRewards) {
+            if (reward != null && !addedRewards.contains(reward.getName()) && reward.getItemType() != 4274335291L) {
+                addedRewards.add(reward.getName());
+                InventoryItemDto inventoryItemDto = new InventoryItemDto(
+                        reward.getName(),
+                        reward.getIconUrl(),
+                        reward.getHashVal().toString());
+                inventoryItemDto.setItemType(reward.getItemType());
+                inventoryItemDto.setItemSubType(reward.getItemSubType());
+                if (reward.getDamageType() != null) {
+                    inventoryItemDto.setDamageType(reward.getDamageType());
+                }
+                rewards.add(inventoryItemDto);
+            }
+        }
+
+        return rewards;
     }
 }
